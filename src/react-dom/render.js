@@ -1,7 +1,7 @@
 let nextUnitOfWork = null;
 let currentRoot = null;
 let wipRoot = null;
-let deletions = [];
+let deletions = null;
 
 /**
  * 给 fiber 节点创建其 dom 节点和设置其属性
@@ -13,13 +13,7 @@ const createDom = (fiber) => {
       ? document.createTextNode("")
       : document.createElement(fiber.type);
 
-  // 给 dom 节点添加属性
-  const isProperty = (key) => key !== "children";
-  Object.keys(fiber.props)
-    .filter(isProperty)
-    .forEach((name) => {
-      dom[name] = fiber.props[name];
-    });
+  updateDom(dom, {}, fiber.props);
 
   return dom;
 };
@@ -57,7 +51,6 @@ const commitWork = (fiber) => {
   commitWork(fiber.child);
   commitWork(fiber.sibling);
 };
-
 
 const isEvent = (key) => key.startsWith("on");
 const isProperty = (key) => key !== "children" && !isEvent(key);
@@ -109,6 +102,7 @@ const render = (element, container) => {
     // 该属性用于记录上一次提交dom后的 fiber tree 引用
     alternate: currentRoot,
   };
+  deletions = [];
   // 设置第一个工作单元为 fiber tree 的 root
   nextUnitOfWork = wipRoot;
 };
@@ -171,10 +165,9 @@ const reconcileChildren = (wipFiber, elements) => {
   let prevSibling = null;
 
   // 遍历当前 fiber 的子元素，并为每个子元素创建一个新的 fiber 节点
-  while (index < elements.length || oldFiber !== null) {
+  while (index < elements.length || oldFiber) {
     const element = elements[index];
     let newFiber = null;
-
     const sameType = oldFiber && element && element.type === oldFiber.type;
 
     // 如果旧的 fiber 与新的元素具有相同类型则可以保留其dom节点，只更新节点内容
@@ -214,7 +207,7 @@ const reconcileChildren = (wipFiber, elements) => {
     // 把新建的 fiber 节点添加到 fiber tree中，将其设置为孩子节点或是兄弟节点
     if (index === 0) {
       wipFiber.child = newFiber;
-    } else {
+    } else if (element) {
       prevSibling.sibling = newFiber;
     }
 
