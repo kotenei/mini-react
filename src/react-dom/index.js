@@ -1,5 +1,6 @@
-import render from "./render";
+import render, { useState } from "./render";
 
 export default {
   render,
+  useState
 };
