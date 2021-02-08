@@ -1,15 +1,19 @@
-import { React, ReactDOM } from "mini-react";
+import { default as MiniReact } from "mini-react";
 
+/** @jsx MiniReact.createElement */
 function Counter() {
-  const [state, setState] = ReactDOM.useState(1);
+  // const [state, setState] = ReactDOM.useState(1);
+  const onClick = () => {
+    setState((c) => c + 1);
+  };
   return (
     <div>
-      <h1>Count: {state}</h1>
-      <button onClick={() => setState((c) => c + 1)}>递增</button>
+      {/* <h1>Count: {state}</h1>*/}
+      <button>递增</button>
     </div>
   );
 }
 
 const element = <Counter />;
 const container = document.getElementById("root");
-ReactDOM.render(element, container);
+MiniReact.render(element, container);

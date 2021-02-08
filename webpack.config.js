@@ -23,30 +23,6 @@ module.exports = {
       },
     ],
   },
-  // optimization: {
-  //   splitChunks: {
-  //     chunks: "all",
-  //     minSize: 0,
-  //     minChunks: 1,
-  //     maxAsyncRequests: 5,
-  //     maxInitialRequests: 3,
-  //     automaticNameDelimiter: "-",
-  //     name: true,
-  //     cacheGroups: {
-  //       vendors: {
-  //         test: /[\\/]node_modules[\\/]/,
-  //         priority: -10,
-  //         name: "vendors",
-  //       },
-  //       "mini-react": {
-  //         test: /[\\/]src[\\/]/,
-  //         priority: -20,
-  //         name: "mini-react",
-  //       },
-  //     },
-  //   },
-  //   runtimeChunk: "single",
-  // },
   resolve: {
     alias: {
       "mini-react": path.resolve(__dirname, "src"),
