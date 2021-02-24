@@ -4,6 +4,8 @@ let currentRoot = null;
 let workInProgressRoot = null;
 // 当前已构建的fiber
 let workInProgressFiber = null;
+// 存放需要删除的fiber节点
+let deletions = null;
 
 const createElement = (type, props, ...children) => {
   return {
@@ -27,27 +29,28 @@ const createTextElement = (text) => {
   };
 };
 
-// 创建dom
-const createDom = (fiber) => {
-  const dom =
+// 创建fiber对应的dom节点
+const createNode = (fiber) => {
+  const node =
     fiber.type === "TEXT_ELEMENT"
       ? document.createTextNode("")
       : document.createElement(fiber.type);
 
-  updateDom(dom, {}, fiber.props);
+  updateNode(node, {}, fiber.props);
 
-  return dom;
+  return node;
 };
 
 const render = (element, container) => {
   workInProgressRoot = {
-    dom: container,
+    stateNode: container,  
     props: {
       children: [element],
     },
     // alternate 连接已渲染的fiber树的引用
     alternate: currentRoot,
   };
+  deletions = [];
   workInProgressFiber = workInProgressRoot;
 };
 
@@ -72,24 +75,7 @@ const workLoopConcurrent = (deadline) => {
 
 // 创建并返回下一个fiber节点（render阶段）
 const performUnitOfWork = (fiber) => {
-  beginWork(fiber);
 
-  // 如果当前 fiber 节点有子节点则返回子节点
-  if (fiber.child) {
-    return fiber.child;
-  }
-
-  // 如果当前 fiber 节点没有子节点，则尝试返回其兄弟节点，如果没有就一直向上查找其父节点，直到所有 fiber 节点创建完成
-  let nextFiber = fiber;
-  while (nextFiber) {
-    if (nextFiber.sibling) {
-      return nextFiber.sibling;
-    }
-    nextFiber = nextFiber.parent;
-  }
-};
-
-const beginWork = (fiber) => {
   // 是否函数组件
   const isFunctionComponent = fiber.type instanceof Function;
 
@@ -99,6 +85,20 @@ const beginWork = (fiber) => {
   } else {
     updateHostComponent(fiber);
   }
+
+  // 如果当前 fiber 节点有子节点则返回子节点
+  if (fiber.child) {
+    return fiber.child;
+  }
+
+  // 如果当前 fiber 节点没有子节点，则返回其兄弟节点，如果没有就一直向上查找。
+  let nextFiber = fiber;
+  while (nextFiber) {
+    if (nextFiber.sibling) {
+      return nextFiber.sibling;
+    }
+    nextFiber = nextFiber.return;
+  }
 };
 
 const updateFunctionComponent = (fiber) => {
@@ -107,8 +107,8 @@ const updateFunctionComponent = (fiber) => {
 };
 
 const updateHostComponent = (fiber) => {
-  if (!fiber.dom) {
-    fiber.dom = createDom(fiber);
+  if (!fiber.stateNode) {
+    fiber.stateNode = createNode(fiber);
   }
   reconcileChildren(fiber, fiber.props.children);
 };
@@ -130,8 +130,8 @@ const reconcileChildren = (fiber, elements) => {
       newFiber = {
         type: oldFiber.type,
         props: element.props,
-        dom: oldFiber.dom,
-        parent: fiber,
+        stateNode: oldFiber.stateNode,
+        return: fiber,
         alternate: oldFiber,
         effectTag: "UPDATE",
       };
@@ -142,8 +142,8 @@ const reconcileChildren = (fiber, elements) => {
       newFiber = {
         type: element.type,
         props: element.props,
-        dom: null,
-        parent: fiber,
+        stateNode: null,
+        return: fiber,
         alternate: null,
         effectTag: "PLACEMENT",
       };
@@ -173,6 +173,7 @@ const reconcileChildren = (fiber, elements) => {
 
 // 渲染到页面上(commit阶段)
 const commitRoot = () => {
+  deletions.forEach(commitWork)
   commitWork(workInProgressRoot.child);
   // 渲染完成后记录当前已渲染后的fiber树
   currentRoot = workInProgressRoot;
@@ -184,20 +185,20 @@ const commitWork = (fiber) => {
   if (!fiber) {
     return;
   }
-  let domParentFiber = fiber.parent;
 
-  while (!domParentFiber.dom) {
-    domParentFiber = domParentFiber.parent;
+  let parentFiber = fiber.return;
+  while (!parentFiber.stateNode) {
+    parentFiber = parentFiber.return;
   }
 
-  const domParent = domParentFiber.dom;
+  const parentNode = parentFiber.stateNode;
 
-  if (fiber.effectTag === "PLACEMENT" && fiber.dom != null) {
-    domParent.appendChild(fiber.dom);
-  } else if (fiber.effectTag === "UPDATE" && fiber.dom !== null) {
-    updateDom(fiber.dom, fiber.alternate.props, fiber.props);
+  if (fiber.effectTag === "PLACEMENT" && fiber.stateNode != null) {
+    parentNode.appendChild(fiber.stateNode);
+  } else if (fiber.effectTag === "UPDATE" && fiber.stateNode !== null) {
+    updateNode(fiber.stateNode, fiber.alternate.props, fiber.props);
   } else if (fiber.effectTag === "DELETION") {
-    commitDeletion(fiber, domParent);
+    commitDeletion(fiber, parentNode);
   }
 
   commitWork(fiber.child);
@@ -210,14 +211,14 @@ const isNew = (prev, next) => (key) => prev[key] !== next[key];
 const isGone = (prev, next) => (key) => !(key in next);
 
 // 更新节点
-const updateDom = (dom, prevProps, nextProps) => {
+const updateNode = (node, prevProps, nextProps) => {
   // 移除旧的或已修改过的事件
   Object.keys(prevProps)
     .filter(isEvent)
     .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
     .forEach((name) => {
       const eventType = name.toLowerCase().substring(2);
-      dom.removeEventListener(eventType, prevProps[name]);
+      node.removeEventListener(eventType, prevProps[name]);
     });
 
   // 移除旧的属性
@@ -225,7 +226,7 @@ const updateDom = (dom, prevProps, nextProps) => {
     .filter(isProperty)
     .filter(isGone(prevProps, nextProps))
     .forEach((name) => {
-      dom[name] = "";
+      node[name] = "";
     });
 
   // 设置新的或已更改的属性
@@ -233,7 +234,7 @@ const updateDom = (dom, prevProps, nextProps) => {
     .filter(isProperty)
     .filter(isNew(prevProps, nextProps))
     .forEach((name) => {
-      dom[name] = nextProps[name];
+      node[name] = nextProps[name];
     });
 
   // 添加事件监听
@@ -242,23 +243,25 @@ const updateDom = (dom, prevProps, nextProps) => {
     .filter(isNew(prevProps, nextProps))
     .forEach((name) => {
       const eventType = name.toLowerCase().substring(2);
-      dom.addEventListener(eventType, nextProps[name]);
+      node.addEventListener(eventType, nextProps[name]);
     });
 };
 
 // 移除节点
-const commitDeletion = (fiber, domParent) => {
-  if (fiber.dom) {
-    domParent.removeChild(fiber.dom);
+const commitDeletion = (fiber, parentNode) => {
+  if (fiber.stateNode) {
+    parentNode.removeChild(fiber.stateNode);
   } else {
-    commitDeletion(fiber.child, domParent);
+    commitDeletion(fiber.child, parentNode);
   }
 };
 
 // 相当于react的 Scheduler
 requestIdleCallback(workLoopConcurrent);
 
-const useState = (initState) => {};
+const useState = (initState) => {
+
+};
 
 export default {
   createElement,
