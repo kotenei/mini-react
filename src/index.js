@@ -6,6 +6,7 @@ let workInProgressRoot = null;
 let workInProgressFiber = null;
 // 存放需要删除的fiber节点
 let deletions = null;
+let hookIndex = null;
 
 const createElement = (type, props, ...children) => {
   return {
@@ -43,7 +44,7 @@ const createNode = (fiber) => {
 
 const render = (element, container) => {
   workInProgressRoot = {
-    stateNode: container,  
+    stateNode: container,
     props: {
       children: [element],
     },
@@ -75,7 +76,6 @@ const workLoopConcurrent = (deadline) => {
 
 // 创建并返回下一个fiber节点（render阶段）
 const performUnitOfWork = (fiber) => {
-
   // 是否函数组件
   const isFunctionComponent = fiber.type instanceof Function;
 
@@ -102,6 +102,9 @@ const performUnitOfWork = (fiber) => {
 };
 
 const updateFunctionComponent = (fiber) => {
+  // workInProgressFiber = fiber;
+  // workInProgressFiber.hooks = [];
+  // hookIndex = 0;
   const children = [fiber.type(fiber.props)];
   reconcileChildren(fiber, children);
 };
@@ -173,7 +176,7 @@ const reconcileChildren = (fiber, elements) => {
 
 // 渲染到页面上(commit阶段)
 const commitRoot = () => {
-  deletions.forEach(commitWork)
+  deletions.forEach(commitWork);
   commitWork(workInProgressRoot.child);
   // 渲染完成后记录当前已渲染后的fiber树
   currentRoot = workInProgressRoot;
@@ -260,7 +263,36 @@ const commitDeletion = (fiber, parentNode) => {
 requestIdleCallback(workLoopConcurrent);
 
 const useState = (initState) => {
+  const oldHook =
+    workInProgressFiber.alternate &&
+    workInProgressFiber.alternate.hooks &&
+    workInProgressFiber.alternate.hooks[hookIndex];
 
+  const hook = {
+    state: oldHook ? oldHook.state : initState,
+    queue: [],
+  };
+
+  const actions = oldHook ? oldHook.queue : [];
+  actions.forEach((action) => {
+    hook.state = action(hook.state);
+  });
+
+  const setState = (action) => {
+    hook.queue.push(action);
+    workInProgressRoot = {
+      stateNode: currentRoot.stateNode,
+      props: currentRoot.props,
+      alternate: currentRoot,
+    };
+    workInProgressFiber = workInProgressRoot;
+    deletions = [];
+  };
+
+  workInProgressFiber.hooks.push(hook);
+  hookIndex++;
+
+  return [hook.state, setState];
 };
 
 export default {
