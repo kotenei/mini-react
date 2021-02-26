@@ -2,8 +2,8 @@
 let currentRoot = null;
 // 正在构建的fiber树的引用
 let workInProgressRoot = null;
-// 当前已构建的fiber
-let workInProgressFiber = null;
+// 正在构建的 fiber
+let workInProgress = null;
 // 存放需要删除的fiber节点
 let deletions = null;
 let hookIndex = null;
@@ -52,7 +52,7 @@ const render = (element, container) => {
     alternate: currentRoot,
   };
   deletions = [];
-  workInProgressFiber = workInProgressRoot;
+  workInProgress = workInProgressRoot;
 };
 
 // 并发模式（时间分片）
@@ -62,12 +62,12 @@ const workLoopConcurrent = (deadline) => {
   const shouldYield = deadline.timeRemaining() < 1;
 
   // 构建fiber树
-  while (workInProgressFiber && !shouldYield) {
-    workInProgressFiber = performUnitOfWork(workInProgressFiber);
+  while (workInProgress && !shouldYield) {
+    workInProgress = performUnitOfWork(workInProgress);
   }
 
   // 如果fiber树已构建完,则render阶段的工作结束，已进入渲染阶段
-  if (!workInProgressFiber && workInProgressRoot) {
+  if (!workInProgress && workInProgressRoot) {
     commitRoot();
   }
 
@@ -101,10 +101,13 @@ const performUnitOfWork = (fiber) => {
   }
 };
 
+let workInProgressHook = null;
+let workInProgressFiber = null;
 const updateFunctionComponent = (fiber) => {
-  // workInProgressFiber = fiber;
-  // workInProgressFiber.hooks = [];
+  workInProgressFiber = fiber;
+  // workInProgress.hooks = [];
   // hookIndex = 0;
+  workInProgressHook = fiber.memoizedState;
   const children = [fiber.type(fiber.props)];
   reconcileChildren(fiber, children);
 };
@@ -134,6 +137,7 @@ const reconcileChildren = (fiber, elements) => {
         type: oldFiber.type,
         props: element.props,
         stateNode: oldFiber.stateNode,
+        memoizedState: oldFiber.memoizedState,
         return: fiber,
         alternate: oldFiber,
         effectTag: "UPDATE",
@@ -146,6 +150,7 @@ const reconcileChildren = (fiber, elements) => {
         type: element.type,
         props: element.props,
         stateNode: null,
+        memoizedState: null,
         return: fiber,
         alternate: null,
         effectTag: "PLACEMENT",
@@ -263,36 +268,49 @@ const commitDeletion = (fiber, parentNode) => {
 requestIdleCallback(workLoopConcurrent);
 
 const useState = (initState) => {
-  const oldHook =
-    workInProgressFiber.alternate &&
-    workInProgressFiber.alternate.hooks &&
-    workInProgressFiber.alternate.hooks[hookIndex];
+  // const oldHook =
+  //   workInProgressFiber.alternate &&
+  //   workInProgressFiber.alternate.hooks &&
+  //   workInProgressFiber.alternate.hooks[hookIndex];
 
-  const hook = {
-    state: oldHook ? oldHook.state : initState,
-    queue: [],
-  };
+  // const hook = {
+  //   state: oldHook ? oldHook.state : initState,
+  //   queue: [],
+  // };
 
-  const actions = oldHook ? oldHook.queue : [];
-  actions.forEach((action) => {
-    hook.state = action(hook.state);
-  });
+  // const actions = oldHook ? oldHook.queue : [];
+  // actions.forEach((action) => {
+  //   hook.state = action(hook.state);
+  // });
+
+  let hook;
+
+  if (!currentRoot) {
+    hook = {
+      queue: {
+        pending: null,
+      },
+      memoizedState: initState,
+      next: null,
+    };
+  } else {
+  }
 
   const setState = (action) => {
-    hook.queue.push(action);
+    // hook.queue.push(action);
     workInProgressRoot = {
       stateNode: currentRoot.stateNode,
       props: currentRoot.props,
       alternate: currentRoot,
     };
-    workInProgressFiber = workInProgressRoot;
+    workInProgress = workInProgressRoot;
     deletions = [];
   };
 
-  workInProgressFiber.hooks.push(hook);
-  hookIndex++;
+  // workInProgressFiber.hooks.push(hook);
+  // hookIndex++;
 
-  return [hook.state, setState];
+  return [hook.memoizedState, setState];
 };
 
 export default {
