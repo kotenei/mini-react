@@ -293,8 +293,18 @@ const useState = (initState) => {
       memoizedState: initState,
       next: null,
     };
+    if (!workInProgressFiber.memoizedState) {
+      workInProgressFiber.memoizedState = hook;
+    } else {
+      workInProgressHook.next = hook;
+    }
+    workInProgressHook = hook;
   } else {
+    hook = workInProgressHook;
+    workInProgressHook = workInProgress.next;
   }
+
+  let baseState = hook.memoizedState;
 
   const setState = (action) => {
     // hook.queue.push(action);
@@ -310,7 +320,21 @@ const useState = (initState) => {
   // workInProgressFiber.hooks.push(hook);
   // hookIndex++;
 
-  return [hook.memoizedState, setState];
+  return [baseState, dispatchAction.bind(null, hook.queue)];
+};
+
+const dispatchAction = (queue, action) => {
+  const update = {
+    action,
+    next: null,
+  };
+  if (queue.pending === null) {
+    update.next = update;
+  } else {
+    update.next = queue.pending.next;
+    queue.pending.next = update;
+  }
+  queue.pending = update;
 };
 
 export default {
