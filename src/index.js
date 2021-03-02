@@ -1,12 +1,11 @@
-// 已渲染的fiber树的引用
+// 已渲染的fiber树
 let currentRoot = null;
-// 正在构建的fiber树的引用
+// 正在构建的fiber树
 let workInProgressRoot = null;
-// 正在构建的 fiber
+// 正在构建的fiber节点
 let workInProgress = null;
 // 存放需要删除的fiber节点
 let deletions = null;
-let hookIndex = null;
 
 const createElement = (type, props, ...children) => {
   return {
@@ -55,8 +54,8 @@ const render = (element, container) => {
   workInProgress = workInProgressRoot;
 };
 
-// 并发模式（时间分片）
-const workLoopConcurrent = (deadline) => {
+// 工作循环（时间分片）
+const workLoop = (deadline) => {
   // 获取当前浏览器帧的剩余时间
   // 这里的shouldYield在react中是通过Scheduler模块提供，用来判断是否需要中断遍历
   const shouldYield = deadline.timeRemaining() < 1;
@@ -71,7 +70,7 @@ const workLoopConcurrent = (deadline) => {
     commitRoot();
   }
 
-  requestIdleCallback(workLoopConcurrent);
+  requestIdleCallback(workLoop);
 };
 
 // 创建并返回下一个fiber节点（render阶段）
@@ -105,9 +104,7 @@ let workInProgressHook = null;
 let workInProgressFiber = null;
 const updateFunctionComponent = (fiber) => {
   workInProgressFiber = fiber;
-  // workInProgress.hooks = [];
-  // hookIndex = 0;
-  workInProgressHook = fiber.memoizedState;
+  workInProgressHook = fiber.hook;
   const children = [fiber.type(fiber.props)];
   reconcileChildren(fiber, children);
 };
@@ -137,7 +134,7 @@ const reconcileChildren = (fiber, elements) => {
         type: oldFiber.type,
         props: element.props,
         stateNode: oldFiber.stateNode,
-        memoizedState: oldFiber.memoizedState,
+        hook: oldFiber.hook,
         return: fiber,
         alternate: oldFiber,
         effectTag: "UPDATE",
@@ -150,7 +147,7 @@ const reconcileChildren = (fiber, elements) => {
         type: element.type,
         props: element.props,
         stateNode: null,
-        memoizedState: null,
+        hook: null,
         return: fiber,
         alternate: null,
         effectTag: "PLACEMENT",
@@ -265,24 +262,9 @@ const commitDeletion = (fiber, parentNode) => {
 };
 
 // 相当于react的 Scheduler
-requestIdleCallback(workLoopConcurrent);
+requestIdleCallback(workLoop);
 
 const useState = (initState) => {
-  // const oldHook =
-  //   workInProgressFiber.alternate &&
-  //   workInProgressFiber.alternate.hooks &&
-  //   workInProgressFiber.alternate.hooks[hookIndex];
-
-  // const hook = {
-  //   state: oldHook ? oldHook.state : initState,
-  //   queue: [],
-  // };
-
-  // const actions = oldHook ? oldHook.queue : [];
-  // actions.forEach((action) => {
-  //   hook.state = action(hook.state);
-  // });
-
   let hook;
 
   if (!currentRoot) {
@@ -290,35 +272,33 @@ const useState = (initState) => {
       queue: {
         pending: null,
       },
-      memoizedState: initState,
+      state: initState,
       next: null,
     };
-    if (!workInProgressFiber.memoizedState) {
-      workInProgressFiber.memoizedState = hook;
+    if (!workInProgressFiber.hook) {
+      workInProgressFiber.hook = hook;
     } else {
       workInProgressHook.next = hook;
     }
     workInProgressHook = hook;
   } else {
     hook = workInProgressHook;
-    workInProgressHook = workInProgress.next;
+    workInProgressHook = workInProgressHook.next;
   }
 
-  let baseState = hook.memoizedState;
 
-  const setState = (action) => {
-    // hook.queue.push(action);
-    workInProgressRoot = {
-      stateNode: currentRoot.stateNode,
-      props: currentRoot.props,
-      alternate: currentRoot,
-    };
-    workInProgress = workInProgressRoot;
-    deletions = [];
-  };
+  let baseState = hook.state;
+  if (hook.queue.pending) {
+    let firstUpdate = hook.queue.pending.next;
+    do {
+      const action = firstUpdate.action;
+      baseState = action(baseState);
+      firstUpdate = firstUpdate.next;
+    } while (firstUpdate !== hook.queue.pending);
 
-  // workInProgressFiber.hooks.push(hook);
-  // hookIndex++;
+    hook.queue.pending = null;
+  }
+  hook.state = baseState;
 
   return [baseState, dispatchAction.bind(null, hook.queue)];
 };
@@ -335,6 +315,18 @@ const dispatchAction = (queue, action) => {
     queue.pending.next = update;
   }
   queue.pending = update;
+
+  schedule();
+};
+
+const schedule = () => {
+  workInProgressRoot = {
+    stateNode: currentRoot.stateNode,
+    props: currentRoot.props,
+    alternate: currentRoot,
+  };
+  workInProgress = workInProgressRoot;
+  deletions = [];
 };
 
 export default {

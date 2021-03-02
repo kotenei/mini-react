@@ -5,13 +5,26 @@ import { default as MiniReact } from "mini-react";
 // /**@jsx MiniReact.createElement */
 function App() {
   const [count, setCount] = MiniReact.useState(1);
-  const onClick = () => {
-    setCount((c) => c + 1);
-  };
+  const [name, setName] = MiniReact.useState("abc");
+
   return (
     <div>
       <h1>Count: {count}</h1>
-      <button onClick={onClick}>递增</button>
+      <button
+        onClick={() => {
+          setCount((c) => c + 1);
+        }}
+      >
+        递增
+      </button>
+      &nbsp;
+      <button
+        onClick={() => {
+          setCount((c) => c - 1);
+        }}
+      >
+        递减
+      </button>
     </div>
   );
 }
