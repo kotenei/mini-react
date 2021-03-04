@@ -1,14 +1,14 @@
-// import React, { useState } from "react";
-// import ReactDOM from "react-dom";
-import { default as MiniReact } from "mini-react";
+import React, { useState } from "react";
+import ReactDOM from "react-dom";
+// import { default as MiniReact } from "mini-react";
 
-// /**@jsx MiniReact.createElement */
+// /**@jssx MiniReact.createElement */
 function App() {
-  const [count, setCount] = MiniReact.useState(1);
-  const [name, setName] = MiniReact.useState("abc");
+  const [count, setCount] = React.useState(1);
+  const [name, setName] = React.useState("abc");
 
   return (
-    <div>
+    <div key="aaa">
       <h1>Count: {count}</h1>
       <button
         onClick={() => {
@@ -29,6 +29,10 @@ function App() {
   );
 }
 
-const element = <App />;
+const element = <App key="111" />;
+
+  console.log(element);
+
+
 const container = document.getElementById("root");
-MiniReact.render(element, container);
+ReactDOM.render(element, container);
