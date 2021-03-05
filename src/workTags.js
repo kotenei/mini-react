@@ -1,4 +1,4 @@
-export const Root = 0;
 export const FunctionComponent = 1;
-export const HostComponent = 2;
-export const Text = 3;
+export const HostRoot = 2;
+export const HostComponent = 3;
+export const HostText = 4;
