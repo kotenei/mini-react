@@ -11,7 +11,7 @@ export const createFiberFromTypeAndProps = (type, key, pendingProps) => {
   return createFiber(fiberTag, pendingProps, key);
 };
 
-export const createFiber = (tag, pendingProps, key) => {
+export const createFiber = (tag, props, key) => {
   return {
     tag,
     key,
@@ -20,6 +20,7 @@ export const createFiber = (tag, pendingProps, key) => {
     child: null,
     sibling: null,
     return: null,
+    pendingProps: props,
     alternate: null,
     effectTag: null,
     firstEffect: null,

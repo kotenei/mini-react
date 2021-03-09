@@ -1,6 +1,11 @@
 import { createFiberFromTypeAndProps, createFiber } from "./createFiber";
 import { NoWork } from "./effectTags";
-import { FunctionComponent, HostComponent, HostRoot } from "./workTags";
+import {
+  FunctionComponent,
+  HostComponent,
+  HostRoot,
+  HostText,
+} from "./workTags";
 
 let fiberRootNode = null;
 let currentRoot = null;
@@ -10,17 +15,22 @@ let workInProgress = null;
 const render = (element, container) => {
   // 首次渲染会创建 fiberRootNode
   // fiberRootNode 的 current 指向当前页面上已渲染内容对应的 Fiber 树
-  const rootFiber = createFiber(HostRoot, null, null);
-  fiberRootNode = { current: rootFiber };
-  rootFiber.memoizedState = { element };
-  rootFiber.stateNode = fiberRootNode;
-  // workInProgressRoot = fiberRootNode.current;
+  const rootFiber = createFiber(
+    HostRoot,
+    {
+      children: [element],
+    },
+    null
+  );
+  rootFiber.stateNode = container;
 
-  // workInProgressRoot = createFiber(HostRoot, null, null);
-  // workInProgress.stateNode = container;
+  workInProgress = rootFiber;
+  // fiberRootNode = { current: rootFiber };
+  // rootFiber.stateNode = fiberRootNode;
 
-  workInProgress = createWorkInProgress(fiberRootNode.current, null);
-  workInProgress.memoizedState = { element };
+  // workInProgress = createWorkInProgress(fiberRootNode.current, null);
+  // workInProgress.memoizedState = { element };
+  requestIdleCallback(workLoopConcurrent);
 };
 
 const createWorkInProgress = (currentFiber, pendingProps) => {
@@ -65,7 +75,7 @@ const workLoopConcurrent = (deadline) => {
     workInProgress = performUnitOfWork(workInProgress);
   }
 
-  if (!workInProgress && workInProgressRoot) {
+  if (!workInProgress) {
     commitRoot();
   }
 
@@ -111,14 +121,47 @@ const beginWork = (currentFiber) => {
 
 const completeWork = (currentFiber) => {};
 
-const updateHostRoot = (currentFiber) => {};
+const updateHostRoot = (currentFiber) => {
+  const children = currentFiber.pendingProps;
+  reconcileChildren(currentFiber, children);
+};
 
 const updateHostComponent = (currentFiber) => {};
 
 const updateFunctionComponent = (currentFiber) => {};
 
+const reconcileChildren = (currentFiber, children) => {
+  currentFiber.child = reconcileChildFiber(currentFiber, children);
+};
+
+const reconcileChildFiber = (currentFiber, children) => {
+  if (children instanceof Object) {
+    return reconcileSingleElement(currentFiber, children);
+  }
+
+  if (children instanceof Array) {
+  }
+
+  if (typeof children === "string" || typeof children === "number") {
+  }
+};
+
+const reconcileSingleElement = (currentFiber, element) => {
+  let type = element.type;
+  let tag = null;
+  if (typeof type === "function") {
+    tag = FunctionComponent;
+  } else if (typeof type === "string") {
+    tag = HostText;
+  }
+  const fiber = createFiber(tag, element.props, element.key);
+  fiber.type = type;
+  fiber.return = currentFiber;
+  return fiber;
+};
+
 const commitRoot = () => {
-  workInProgressRoot = null;
+  // workInProgressRoot = null;
 };
 
 const commitWork = () => {};
