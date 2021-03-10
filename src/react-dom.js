@@ -1,20 +1,14 @@
-import { createFiberFromTypeAndProps, createFiber } from "./createFiber";
-import { NoWork } from "./effectTags";
-import {
-  FunctionComponent,
-  HostComponent,
-  HostRoot,
-  HostText,
-} from "./workTags";
+import { createFiber } from "./createFiber";
+import { Deletion, Placement, Update } from "./effectTags";
+import { FunctionComponent, HostComponent, HostRoot } from "./workTags";
 
-let fiberRootNode = null;
 let currentRoot = null;
 let workInProgressRoot = null;
 let workInProgress = null;
+let deletions = null;
+let root;
 
 const render = (element, container) => {
-  // 首次渲染会创建 fiberRootNode
-  // fiberRootNode 的 current 指向当前页面上已渲染内容对应的 Fiber 树
   const rootFiber = createFiber(
     HostRoot,
     {
@@ -23,45 +17,29 @@ const render = (element, container) => {
     null
   );
   rootFiber.stateNode = container;
+  // rootFiber.alternate = currentRoot;
 
-  workInProgress = rootFiber;
-  // fiberRootNode = { current: rootFiber };
-  // rootFiber.stateNode = fiberRootNode;
+  root = {
+    current: rootFiber,
+    finishedWork: rootFiber.alternate,
+  };
 
-  // workInProgress = createWorkInProgress(fiberRootNode.current, null);
-  // workInProgress.memoizedState = { element };
+  deletions = [];
+  workInProgress = root.current;
+  root.current.alternate = workInProgress;
   requestIdleCallback(workLoopConcurrent);
 };
 
-const createWorkInProgress = (currentFiber, pendingProps) => {
-  let workInProgress = currentFiber.alternate;
+// 创建fiber对应的dom节点
+const createNode = (fiber) => {
+  const node =
+    fiber.type === "TEXT_ELEMENT"
+      ? document.createTextNode("")
+      : document.createElement(fiber.type);
 
-  if (!workInProgress) {
-    workInProgress = createFiber(
-      currentFiber.tag,
-      pendingProps,
-      currentFiber.key
-    );
-    workInProgress.type = currentFiber.type;
-    workInProgress.stateNode = currentFiber.stateNode;
-    workInProgress.alternate = currentFiber;
-    currentFiber.alternate = workInProgress;
-  } else {
-    workInProgress.pendingProps = pendingProps;
-    workInProgress.effectTag = NoWork;
-    workInProgress.firstEffect = null;
-    workInProgress.lastEffect = null;
-    workInProgress.nextEffect = null;
-  }
+  //  updateNode(node, {}, fiber.props);
 
-  workInProgress.updateQueue = currentFiber.updateQueue;
-  workInProgress.child = currentFiber.child;
-  workInProgress.sibling = currentFiber.sibling;
-  workInProgress.return = currentFiber.return;
-  workInProgress.memoizedState = currentFiber.memoizedState;
-  workInProgress.memoizedProps = currentFiber.memoizedProps;
-
-  return workInProgress;
+  return node;
 };
 
 // 工作循环（时间分片）
@@ -82,8 +60,6 @@ const workLoopConcurrent = (deadline) => {
   requestIdleCallback(workLoopConcurrent);
 };
 
-// requestIdleCallback(workLoopConcurrent);
-
 // 创建并返回下一个fiber节点（render阶段)
 const performUnitOfWork = (currentFiber) => {
   beginWork(currentFiber);
@@ -94,7 +70,7 @@ const performUnitOfWork = (currentFiber) => {
 
   // 如果当前 fiber 节点没有子节点，则返回兄弟节点，如果没有就一直向上查找。
   while (currentFiber) {
-    completeWork(currentFiber);
+    completeUnitOfWork(currentFiber);
     if (currentFiber.sibling) {
       return currentFiber.sibling;
     }
@@ -119,49 +95,85 @@ const beginWork = (currentFiber) => {
   }
 };
 
-const completeWork = (currentFiber) => {};
+const completeUnitOfWork = (currentFiber) => {};
 
 const updateHostRoot = (currentFiber) => {
   const children = currentFiber.pendingProps;
   reconcileChildren(currentFiber, children);
 };
 
-const updateHostComponent = (currentFiber) => {};
+const updateHostComponent = (currentFiber) => {
+  if (!currentFiber.stateNode) {
+    currentFiber.stateNode = createNode(currentFiber);
+  }
+  reconcileChildren(currentFiber, currentFiber.pendingProps.children);
+};
 
-const updateFunctionComponent = (currentFiber) => {};
+const updateFunctionComponent = (currentFiber) => {
+  const children = [currentFiber.type(currentFiber.pendingProps)];
+  reconcileChildren(currentFiber, children);
+};
 
+// 协调阶段，给子 fiber 打上标签，确定是否新增、修改或者删除
 const reconcileChildren = (currentFiber, children) => {
-  currentFiber.child = reconcileChildFiber(currentFiber, children);
+  let index = 0;
+  let oldFiber = currentFiber.alternate && currentFiber.alternate.child;
+  let prevSibling = null;
+
+  while (index < children.length || oldFiber) {
+    const child = children[index];
+    let newFiber;
+    let isSameType =
+      oldFiber &&
+      child &&
+      oldFiber.type === child.type &&
+      oldFiber.key === child.key;
+
+    // 不是不同类型并且有新元素，表示新建，打上 Placement 标识
+    if (!isSameType && child) {
+      let tag = typeof child === "function" ? FunctionComponent : HostComponent;
+      newFiber = createFiber(tag, child.props, child.key);
+      newFiber.type = child.type;
+      newFiber.return = currentFiber;
+      newFiber.effectTag = Placement;
+    }
+
+    // 如果是相同类型，则复用旧 fiber，打上 Update 标识
+    if (isSameType) {
+      newFiber = createFiber(oldFiber.tag, child.props, oldFiber.key);
+      newFiber.type = oldFiber.type;
+      newFiber.stateNode = oldFiber.stateNode;
+      newFiber.alternate = oldFiber;
+      newFiber.return = currentFiber;
+      newFiber.effectTag = Update;
+    }
+
+    // 如果类型不同，并且有旧的 fiber，则需要删除旧的 fiber，打上 Deletion 标识
+    if (!isSameType && oldFiber) {
+      oldFiber.effectTag = Deletion;
+      deletions.push(oldFiber);
+    }
+
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling;
+    }
+
+    if (index === 0) {
+      currentFiber.child = newFiber;
+    } else if (child) {
+      prevSibling.sibling = newFiber;
+    }
+
+    index++;
+    prevSibling = newFiber;
+  }
 };
 
-const reconcileChildFiber = (currentFiber, children) => {
-  if (children instanceof Object) {
-    return reconcileSingleElement(currentFiber, children);
-  }
-
-  if (children instanceof Array) {
-  }
-
-  if (typeof children === "string" || typeof children === "number") {
-  }
-};
-
-const reconcileSingleElement = (currentFiber, element) => {
-  let type = element.type;
-  let tag = null;
-  if (typeof type === "function") {
-    tag = FunctionComponent;
-  } else if (typeof type === "string") {
-    tag = HostText;
-  }
-  const fiber = createFiber(tag, element.props, element.key);
-  fiber.type = type;
-  fiber.return = currentFiber;
-  return fiber;
-};
-
+// render 阶段
 const commitRoot = () => {
   // workInProgressRoot = null;
+  // currentRoot = rootFiber;
+  // root.finishedWork = null;
 };
 
 const commitWork = () => {};

@@ -29,6 +29,9 @@ function App() {
   );
 }
 
+const e=<div key="123">Hello world!<span>ffff</span></div>;
+console.log(e)
+
 const element = <App key="111" />;
 const container = document.getElementById("root");
 MiniReact.render(element, container);
