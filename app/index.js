@@ -3,35 +3,40 @@
 import { default as MiniReact } from "mini-react";
 
 // /**@jsx MiniReact.createElement */
-function App() {
-  const [count, setCount] = MiniReact.useState(1);
-  const [name, setName] = MiniReact.useState("abc");
+// function App() {
+//   const [count, setCount] = MiniReact.useState(1);
+//   const [name, setName] = MiniReact.useState("abc");
 
-  return (
-    <div key="aaa">
-      <h1>Count: {count}</h1>
-      <button
-        onClick={() => {
-          setCount((c) => c + 1);
-        }}
-      >
-        递增
-      </button>
-      &nbsp;
-      <button
-        onClick={() => {
-          setCount((c) => c - 1);
-        }}
-      >
-        递减
-      </button>
-    </div>
-  );
-}
+//   return (
+//     <div>
+//       <h1>Count: {count}</h1>
+//       <button
+//         onClick={() => {
+//           setCount((c) => c + 1);
+//         }}
+//       >
+//         递增
+//       </button>
+//       &nbsp;
+//       <button
+//         onClick={() => {
+//           setCount((c) => c - 1);
+//         }}
+//       >
+//         递减
+//       </button>
+//     </div>
+//   );
+// }
 
-const e=<div key="123">Hello world!<span>ffff</span></div>;
-console.log(e)
 
-const element = <App key="111" />;
+const App = () => {
+  return <div key="abc">Hello</div>;
+};
+
+const element = <App />;
+
+console.log(<div key="Asdf">adsf</div>)
+
 const container = document.getElementById("root");
 MiniReact.render(element, container);

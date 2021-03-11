@@ -1,5 +1,6 @@
 const createElement = (type, props, ...children) => {
-  const key = props.key || null;
+  const key = (props && props.key) || null;
+
   return {
     type,
     key,

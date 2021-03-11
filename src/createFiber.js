@@ -8,6 +8,7 @@ export const createFiber = (tag, props, key) => {
     sibling: null,
     return: null,
     pendingProps: props,
+    memoizedState: null,
     alternate: null,
     effectTag: null,
     firstEffect: null,

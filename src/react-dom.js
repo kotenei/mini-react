@@ -1,11 +1,11 @@
 import { createFiber } from "./createFiber";
 import { Deletion, Placement, Update } from "./effectTags";
 import { FunctionComponent, HostComponent, HostRoot } from "./workTags";
+import { createNode, updateNode } from "./utils";
 
-let currentRoot = null;
-let workInProgressRoot = null;
 let workInProgress = null;
 let deletions = null;
+let isMount = true;
 let root;
 
 const render = (element, container) => {
@@ -17,35 +17,19 @@ const render = (element, container) => {
     null
   );
   rootFiber.stateNode = container;
-  // rootFiber.alternate = currentRoot;
 
   root = {
     current: rootFiber,
-    finishedWork: rootFiber.alternate,
   };
 
-  deletions = [];
-  workInProgress = root.current;
-  root.current.alternate = workInProgress;
+  sechedule();
   requestIdleCallback(workLoopConcurrent);
-};
-
-// 创建fiber对应的dom节点
-const createNode = (fiber) => {
-  const node =
-    fiber.type === "TEXT_ELEMENT"
-      ? document.createTextNode("")
-      : document.createElement(fiber.type);
-
-  //  updateNode(node, {}, fiber.props);
-
-  return node;
 };
 
 // 工作循环（时间分片）
 const workLoopConcurrent = (deadline) => {
   // 获取当前浏览器帧的剩余时间
-  // 这里的shouldYield在react中是通过Scheduler模块提供，用来判断是否需要中断遍历
+  // 这里的 shouldYield 在 react 中是通过 Scheduler 模块提供，用来判断是否需要中断遍历
   const shouldYield = deadline.timeRemaining() < 1;
 
   // 构建fiber树
@@ -53,7 +37,8 @@ const workLoopConcurrent = (deadline) => {
     workInProgress = performUnitOfWork(workInProgress);
   }
 
-  if (!workInProgress) {
+  // 如果fiber树已构建完,则 render 阶段的工作结束，已进入渲染阶段
+  if (!workInProgress && root.finishedWork) {
     commitRoot();
   }
 
@@ -78,6 +63,7 @@ const performUnitOfWork = (currentFiber) => {
   }
 };
 
+// 构建子 fiber 节点
 const beginWork = (currentFiber) => {
   const tag = currentFiber.tag;
   switch (tag) {
@@ -98,7 +84,7 @@ const beginWork = (currentFiber) => {
 const completeUnitOfWork = (currentFiber) => {};
 
 const updateHostRoot = (currentFiber) => {
-  const children = currentFiber.pendingProps;
+  const { children } = currentFiber.pendingProps;
   reconcileChildren(currentFiber, children);
 };
 
@@ -109,7 +95,11 @@ const updateHostComponent = (currentFiber) => {
   reconcileChildren(currentFiber, currentFiber.pendingProps.children);
 };
 
+let workInProgressFiber = null;
+let workInProgressHook = null;
 const updateFunctionComponent = (currentFiber) => {
+  workInProgressFiber = currentFiber;
+  workInProgressHook = currentFiber.memoizedState;
   const children = [currentFiber.type(currentFiber.pendingProps)];
   reconcileChildren(currentFiber, children);
 };
@@ -131,7 +121,8 @@ const reconcileChildren = (currentFiber, children) => {
 
     // 不是不同类型并且有新元素，表示新建，打上 Placement 标识
     if (!isSameType && child) {
-      let tag = typeof child === "function" ? FunctionComponent : HostComponent;
+      let tag =
+        typeof child.type === "function" ? FunctionComponent : HostComponent;
       newFiber = createFiber(tag, child.props, child.key);
       newFiber.type = child.type;
       newFiber.return = currentFiber;
@@ -171,11 +162,83 @@ const reconcileChildren = (currentFiber, children) => {
 
 // render 阶段
 const commitRoot = () => {
-  // workInProgressRoot = null;
-  // currentRoot = rootFiber;
-  // root.finishedWork = null;
+  // 渲染完成后更改current指向
+  root.current = root.finishedWork;
+  root.finishedWork = null;
+  if (!isMount) {
+    isMount = true;
+  }
 };
 
 const commitWork = () => {};
+
+// 模拟React开始调度更新
+const sechedule = () => {
+  const rootFiber = root.current;
+
+  workInProgress = rootFiber.alternate;
+
+  if (!workInProgress) {
+    workInProgress = createFiber(
+      rootFiber.tag,
+      rootFiber.pendingProps,
+      rootFiber.key
+    );
+    workInProgress.stateNode = rootFiber.stateNode;
+    workInProgress.alternate = rootFiber;
+    rootFiber.alternate = workInProgress;
+  } else {
+    workInProgress.effectTag = null;
+    workInProgress.nextEffect = null;
+    workInProgress.firstEffect = null;
+    workInProgress.lastEffect = null;
+  }
+  workInProgress.memoizedState = rootFiber.memoizedState;
+
+  root.finishedWork = root.current.alternate;
+  deletions = [];
+};
+
+export const useState = (initialState) => {
+  let hook;
+
+  // 是否初始
+  if (!isMount) {
+    hook = {
+      queue: {
+        pending: null,
+      },
+      // hook 状态
+      memoizedState: initialState,
+      // 指向下个 hook
+      next: null,
+    };
+
+    if (!workInProgressFiber.memoizedState) {
+      workInProgressFiber.memoizedState = hook;
+    } else {
+      workInProgressHook.next = hook;
+    }
+
+    workInProgressHook = hook;
+  } else {
+    hook = workInProgressHook;
+    workInProgressHook = workInProgressHook.next;
+  }
+
+  let baseState = hook.memoizedState;
+  if (hook.queue.pending) {
+    let firstUpdate = hook.queue.pending.next;
+    do {
+      const action = firstUpdate.action;
+      baseState = action(baseState);
+      firstUpdate = firstUpdate.next;
+    } while (firstUpdate !== hook.queue.pending);
+
+    hook.queue.pending = null;
+  }
+
+  return [baseState, null];
+};
 
 export default render;

@@ -1,3 +1,3 @@
-export const FunctionComponent = 1;
-export const HostRoot = 2;
-export const HostComponent = 3;
+export const HostRoot = 1;
+export const HostComponent = 2;
+export const FunctionComponent = 3;
