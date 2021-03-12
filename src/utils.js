@@ -15,9 +15,10 @@ const isProperty = (key) =>
   key !== "children" && key !== "key" && !isEvent(key);
 const isNew = (prev, next) => (key) => prev[key] !== next[key];
 const isGone = (prev, next) => (key) => !(key in next);
+
 // 更新 dome 节点
 export const updateNode = (node, prevProps, nextProps) => {
-  // 移除旧的或已修改过的事件
+  // 移除旧的事件
   Object.keys(prevProps)
     .filter(isEvent)
     .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
@@ -34,7 +35,7 @@ export const updateNode = (node, prevProps, nextProps) => {
       node[name] = "";
     });
 
-  // 设置新的或已更改的属性
+  // 设置新的属性
   Object.keys(nextProps)
     .filter(isProperty)
     .filter(isNew(prevProps, nextProps))
@@ -42,7 +43,7 @@ export const updateNode = (node, prevProps, nextProps) => {
       node[name] = nextProps[name];
     });
 
-  // 添加事件监听
+  // 添加新的事件
   Object.keys(nextProps)
     .filter(isEvent)
     .filter(isNew(prevProps, nextProps))

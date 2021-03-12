@@ -3,40 +3,46 @@
 import { default as MiniReact } from "mini-react";
 
 // /**@jsx MiniReact.createElement */
-// function App() {
-//   const [count, setCount] = MiniReact.useState(1);
-//   const [name, setName] = MiniReact.useState("abc");
+let flag = false;
+function App() {
+  const [count, setCount] = MiniReact.useState(0);
+  const [name, setName] = MiniReact.useState("abc");
 
-//   return (
-//     <div>
-//       <h1>Count: {count}</h1>
-//       <button
-//         onClick={() => {
-//           setCount((c) => c + 1);
-//         }}
-//       >
-//         递增
-//       </button>
-//       &nbsp;
-//       <button
-//         onClick={() => {
-//           setCount((c) => c - 1);
-//         }}
-//       >
-//         递减
-//       </button>
-//     </div>
-//   );
-// }
+  if (!flag) {
+    setTimeout(() => {
+      setCount(1);
+      setCount(2);
+    }, 1000);
 
+    // setTimeout(() => {
+    //   // setCount(2);
+    //   setName("aaa");
+    // }, 3000);
+    flag = true;
+  }
 
-const App = () => {
-  return <div key="abc">Hello</div>;
-};
+  return (
+    <div>
+      <h1>Count: {count}</h1>
+      <button
+        onClick={() => {
+          setCount((c) => c + 1);
+        }}
+      >
+        递增
+      </button>
+      &nbsp;
+      <button
+        onClick={() => {
+          setCount((c) => c - 1);
+        }}
+      >
+        递减
+      </button>
+    </div>
+  );
+}
 
 const element = <App />;
-
-console.log(<div key="Asdf">adsf</div>)
-
 const container = document.getElementById("root");
 MiniReact.render(element, container);
