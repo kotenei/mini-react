@@ -294,7 +294,7 @@ const useState = (initState) => {
       const action = firstUpdate.action;
       baseState = typeof action === "function" ? action(baseState) : action;
       firstUpdate = firstUpdate.next;
-    } while (firstUpdate !== hook.queue.pending);
+    } while (firstUpdate !== hook.queue.pending.next);
 
     hook.queue.pending = null;
   }

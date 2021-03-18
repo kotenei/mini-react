@@ -6,13 +6,13 @@ import { default as MiniReact } from "mini-react";
 let flag = false;
 function App() {
   const [count, setCount] = MiniReact.useState(0);
-  const [name, setName] = MiniReact.useState("abc");
+  // const [name, setName] = MiniReact.useState("abc");
 
   if (!flag) {
-    setTimeout(() => {
-      setCount(1);
-      setCount(2);
-    }, 1000);
+    // setTimeout(() => {
+    //   setCount(1);
+    //   // setCount(2);
+    // }, 1000);
 
     // setTimeout(() => {
     //   // setCount(2);
@@ -22,7 +22,7 @@ function App() {
   }
 
   return (
-    <div>
+    <div key="app">
       <h1>Count: {count}</h1>
       <button
         onClick={() => {
@@ -31,17 +31,12 @@ function App() {
       >
         递增
       </button>
-      &nbsp;
-      <button
-        onClick={() => {
-          setCount((c) => c - 1);
-        }}
-      >
-        递减
-      </button>
+      {count === 0 ? <div key="child">Child</div> : null}
     </div>
   );
 }
+
+// const Child = () => <div key="child">Child</div>;
 
 const element = <App />;
 const container = document.getElementById("root");

@@ -80,9 +80,42 @@ const beginWork = (currentFiber) => {
   }
 };
 
-// 收集当前 fiber 的 effect，然后向上传递
+// 收集副作用链接
+// 每个 fiber 有两个属性
+// firstEffect 指向第一个有副作用的子 fiber
+// lastEffect 指向最后一个有副作用的子 fiber
+// 中间的用 nextEffect 做成一个单链表
 const completeUnitOfWork = (currentFiber) => {
-  if (!currentFiber.return) {
+  const returnFiber = currentFiber.return;
+
+  if (returnFiber) {
+    const effectTag = currentFiber.effectTag;
+
+    // 把自己的儿子挂载到父节点
+    if (!returnFiber.firstEffect) {
+      returnFiber.firstEffect = currentFiber.firstEffect;
+    }
+
+    if (currentFiber.lastEffect) {
+      if (returnFiber.lastEffect) {
+        returnFiber.lastEffect.nextEffect = currentFiber.firstEffect;
+      }
+      returnFiber.lastEffect = currentFiber.lastEffect;
+    }
+
+    // 把自己挂载到父节点
+    if (effectTag) {
+      if (returnFiber.lastEffect) {
+        returnFiber.lastEffect.nextEffect = currentFiber;
+      } else {
+        returnFiber.firstEffect = currentFiber;
+      }
+
+      returnFiber.lastEffect = currentFiber;
+    }
+  }
+
+  if (!returnFiber) {
     // 回溯到达最顶端后，表示 workinprogress 树已经构建完成
     root.finishedWork = currentFiber;
   }
@@ -136,14 +169,6 @@ const reconcileChildren = (currentFiber, children) => {
 
     // 如果是相同类型，则复用旧 fiber，打上 Update 标识
     if (isSameType) {
-      // newFiber = createFiber(oldFiber.tag, child.props, oldFiber.key);
-      // newFiber.type = oldFiber.type;
-      // newFiber.stateNode = oldFiber.stateNode;
-      // newFiber.alternate = oldFiber;
-      // newFiber.return = currentFiber;
-      // newFiber.effectTag = Update;
-      // newFiber.memoizedState = oldFiber.memoizedState;
-
       newFiber = createWorkInProgress(oldFiber, child.props);
       newFiber.return = currentFiber;
       newFiber.effectTag = Update;
@@ -172,6 +197,19 @@ const reconcileChildren = (currentFiber, children) => {
 
 // render 阶段
 const commitRoot = () => {
+  deletions.forEach(commitWork);
+
+  let currentFiber = root.finishedWork.firstEffect;
+
+  if (isMount) {
+    while (currentFiber) {
+      commitWork(currentFiber);
+      currentFiber = currentFiber.nextEffect;
+    }
+  }
+
+  console.log(currentFiber)
+
   // 渲染完成后更改 current 指向
   root.current = root.finishedWork;
   root.finishedWork = null;
@@ -180,7 +218,46 @@ const commitRoot = () => {
   }
 };
 
-const commitWork = () => {};
+const commitWork = (currentFiber) => {
+  if (!currentFiber) {
+    return;
+  }
+
+  let returnFiber = currentFiber.return;
+  while (!returnFiber.stateNode) {
+    returnFiber = returnFiber.return;
+  }
+
+  const parentNode = returnFiber.stateNode;
+  const effectTag = currentFiber.effectTag;
+
+  if (effectTag === Placement && currentFiber.stateNode) {
+    parentNode.appendChild(currentFiber.stateNode);
+  } else if (effectTag === Update && currentFiber.stateNode) {
+    updateNode(
+      currentFiber.stateNode,
+      currentFiber.alternate.pendingProps,
+      currentFiber.pendingProps
+    );
+  } else if (effectTag === Deletion) {
+    console.log("kkkk");
+    // commitDeletion(currentFiber, parentNode);
+  }
+};
+
+const commitDeletion = (currentFiber, parentNode) => {
+  if (!currentFiber && !parentNode) {
+    return;
+  }
+
+  console.log(currentFiber.stateNode, parentNode);
+
+  if (currentFiber.stateNode) {
+    parentNode.removeChild(currentFiber.stateNode);
+  } else {
+    commitDeletion(currentFiber.child, parentNode);
+  }
+};
 
 // 模拟 React 调度
 const schedule = () => {
@@ -248,10 +325,6 @@ export const useState = (initialState) => {
     workInProgressHook = workInProgressHook.next;
   }
 
-  if (!isMount) {
-    console.log(hook.queue.pending, hook.memoizedState);
-  }
-
   let baseState = hook.memoizedState;
   if (hook.queue.pending) {
     let firstUpdate = hook.queue.pending.next;
@@ -259,7 +332,7 @@ export const useState = (initialState) => {
       const action = firstUpdate.action;
       baseState = typeof action === "function" ? action(baseState) : action;
       firstUpdate = firstUpdate.next;
-    } while (firstUpdate !== hook.queue.pending);
+    } while (firstUpdate !== hook.queue.pending.next);
 
     hook.queue.pending = null;
   }
