@@ -3,6 +3,7 @@ import { Deletion, Placement, Update } from "./effectTags";
 import { FunctionComponent, HostComponent, HostRoot } from "./workTags";
 import { createNode, updateNode } from "./utils";
 
+let workInProgressRoot = null;
 let workInProgress = null;
 let deletions = null;
 let isMount = true;
@@ -37,7 +38,7 @@ const workLoopConcurrent = (deadline) => {
   }
 
   // 如果 fiber 树已构建完,则 render 阶段的工作结束，已进入渲染阶段
-  if (!workInProgress && root.finishedWork) {
+  if (!workInProgress && workInProgressRoot) {
     commitRoot();
   } else {
     requestIdleCallback(workLoopConcurrent);
@@ -114,11 +115,6 @@ const completeUnitOfWork = (currentFiber) => {
       returnFiber.lastEffect = currentFiber;
     }
   }
-
-  if (!returnFiber) {
-    // 回溯到达最顶端后，表示 workinprogress 树已经构建完成
-    root.finishedWork = currentFiber;
-  }
 };
 
 const updateHostRoot = (currentFiber) => {
@@ -145,7 +141,7 @@ const updateFunctionComponent = (currentFiber) => {
 // 协调阶段，给子 fiber 打上标签，确定是否新增、修改或者删除
 const reconcileChildren = (currentFiber, children) => {
   let index = 0;
-  let oldFiber = currentFiber.alternate && currentFiber.alternate.child;
+  let oldFiber = currentFiber.child;
   let prevSibling = null;
 
   while (index < children.length || oldFiber) {
@@ -170,6 +166,7 @@ const reconcileChildren = (currentFiber, children) => {
     // 如果是相同类型，则复用旧 fiber，打上 Update 标识
     if (isSameType) {
       newFiber = createWorkInProgress(oldFiber, child.props);
+      newFiber.sibling = null;
       newFiber.return = currentFiber;
       newFiber.effectTag = Update;
     }
@@ -195,24 +192,21 @@ const reconcileChildren = (currentFiber, children) => {
   }
 };
 
-// render 阶段
+// 提交更新(commit阶段)
 const commitRoot = () => {
+  // 删除旧的节点
   deletions.forEach(commitWork);
 
-  let currentFiber = root.finishedWork.firstEffect;
-
-  if (isMount) {
-    while (currentFiber) {
-      commitWork(currentFiber);
-      currentFiber = currentFiber.nextEffect;
-    }
+  let currentFiber = workInProgressRoot.firstEffect;
+  while (currentFiber) {
+    commitWork(currentFiber);
+    currentFiber = currentFiber.nextEffect;
   }
 
-  console.log(currentFiber)
-
   // 渲染完成后更改 current 指向
-  root.current = root.finishedWork;
-  root.finishedWork = null;
+  root.current = workInProgressRoot;
+  workInProgressRoot = null;
+
   if (isMount) {
     isMount = false;
   }
@@ -240,8 +234,7 @@ const commitWork = (currentFiber) => {
       currentFiber.pendingProps
     );
   } else if (effectTag === Deletion) {
-    console.log("kkkk");
-    // commitDeletion(currentFiber, parentNode);
+    commitDeletion(currentFiber, parentNode);
   }
 };
 
@@ -249,8 +242,6 @@ const commitDeletion = (currentFiber, parentNode) => {
   if (!currentFiber && !parentNode) {
     return;
   }
-
-  console.log(currentFiber.stateNode, parentNode);
 
   if (currentFiber.stateNode) {
     parentNode.removeChild(currentFiber.stateNode);
@@ -265,6 +256,7 @@ const schedule = () => {
     root.current,
     root.current.pendingProps
   );
+  workInProgressRoot = workInProgress;
   deletions = [];
   requestIdleCallback(workLoopConcurrent);
 };

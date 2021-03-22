@@ -11,13 +11,8 @@ function App() {
   if (!flag) {
     // setTimeout(() => {
     //   setCount(1);
-    //   // setCount(2);
     // }, 1000);
 
-    // setTimeout(() => {
-    //   // setCount(2);
-    //   setName("aaa");
-    // }, 3000);
     flag = true;
   }
 
@@ -31,12 +26,9 @@ function App() {
       >
         递增
       </button>
-      {count === 0 ? <div key="child">Child</div> : null}
     </div>
   );
 }
-
-// const Child = () => <div key="child">Child</div>;
 
 const element = <App />;
 const container = document.getElementById("root");

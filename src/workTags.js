@@ -1,3 +1,3 @@
-export const HostRoot = 'HostRoot';
-export const HostComponent = 'HostCmpt';
-export const FunctionComponent = 'FuncCmpt';
+export const HostRoot = 1;
+export const HostComponent = 2;
+export const FunctionComponent = 3;
