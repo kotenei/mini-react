@@ -1,0 +1,50 @@
+{
+  "name": "mini-react",
+  "version": "1.0.0",
+  "description": "mini-react",
+  "main": "index.js",
+  "scripts": {
+    "start": "webpack serve",
+    "build": "webpack --config webpack.config.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kotenei/mini-react.git"
+  },
+  "keywords": [
+    "mini-react"
+  ],
+  "author": "kotenei",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kotenei/mini-react/issues"
+  },
+  "homepage": "https://github.com/kotenei/mini-react#readme",
+  "devDependencies": {
+    "@babel/cli": "^7.12.10",
+    "@babel/core": "^7.12.10",
+    "@babel/preset-env": "^7.12.11",
+    "@babel/plugin-proposal-class-properties": "^7.8.3",
+    "@babel/plugin-syntax-dynamic-import": "^7.8.3",
+    "@babel/plugin-transform-runtime": "^7.8.3",
+    "@babel/plugin-proposal-decorators": "^7.8.3",
+    "@babel/plugin-proposal-export-default-from": "^7.8.3",
+    "@babel/plugin-proposal-object-rest-spread": "^7.8.3",
+    "@babel/plugin-syntax-jsx": "^7.12.1",
+    "@babel/preset-react": "^7.12.10",
+    "babel-loader": "^8.2.2",
+    "clean-webpack-plugin": "^3.0.0",
+    "file-loader": "^6.0.0",
+    "html-webpack-plugin": "^4.5.1",
+    "fs-extra": "^8.1.0",
+    "path": "^0.12.7",
+    "url-loader": "^4.0.0",
+    "webpack": "^5.16.0",
+    "webpack-cli": "^4.4.0",
+    "webpack-dev-server": "^3.11.2"
+  },
+  "dependencies": {
+    "react": "^17.0.1",
+    "react-dom": "^17.0.1"
+  }
+}
